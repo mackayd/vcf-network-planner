@@ -1,0 +1,25 @@
+{
+  "design": {
+    "blueprint": "Single site - standard",
+    "fleet": "Example fleet",
+    "region": "Example region",
+    "fleets": 1,
+    "instances": 1,
+    "regions": 1,
+    "data_sites": 1
+  },
+  "mgmt": {
+    "az1_site": "Example site A",
+    "infrastructure": "AZ-local subnets"
+  },
+  "wld": {
+    "az1_site": "Example site A",
+    "infrastructure": "AZ-local subnets",
+    "network_model": "Full stack overlay"
+  },
+  "cluster": {
+    "az1_site": "Example site A",
+    "infrastructure": "AZ-local subnets"
+  },
+  "confirmation_mode": "Required"
+}

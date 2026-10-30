@@ -1,0 +1,15 @@
+# Local work and generated reports
+local/
+output/
+private/
+*.import-report.json
+*.import-report.txt
+*.views-report.json
+~$*
+.firewall-import-*
+.engineer-view-*
+.engineer-views-*/
+__pycache__/
+*.py[cod]
+.venv/
+*.log
