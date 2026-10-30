@@ -310,11 +310,12 @@ try{
         if(@($book.Worksheets|Where-Object {[string]$_.Name -ceq 'Pivot summary'}).Count){$ownedViewNames=$viewNames+@('Pivot summary');$existingViews+=@('Pivot summary')}
     }
     Save-State 'snapshot_core'
+    . (Join-Path $PSScriptRoot 'BlueprintDiagram.ps1')
+    $commandsAdded=[bool](Initialize-VcfCommands $book)
     $baselineOwnedCaches=@(Get-OwnedCacheNames $book)
     $baseline=Get-CoreSnapshot $book
     $baselineJson=$baseline|ConvertTo-Json -Depth 12 -Compress
     Save-State 'render_blueprint'
-    . (Join-Path $PSScriptRoot 'BlueprintDiagram.ps1')
     $diagramReport=Update-BlueprintDiagram $book
     $excel.Calculation=-4135
     $matrix=$book.Worksheets.Item('Firewall matrix');$matrixTable=$matrix.ListObjects.Item('FirewallRules')
@@ -369,6 +370,7 @@ try{
     $selection=$viewBook.Worksheets.Item($viewNames)
     [void]$selection.Copy([Type]::Missing,$book.Worksheets.Item($book.Worksheets.Count))
     Release-Com $selection;[void]$viewBook.Close($false);Release-Com $viewBook;$viewBook=$null
+    [void]$book.Worksheets.Item('Commands').Move([Type]::Missing,$book.Worksheets.Item($book.Worksheets.Count))
     $rules=$book.Worksheets.Item('Engineer rules');$guide=$book.Worksheets.Item('Engineer guide')
     [void]$rules.Select()
     foreach($sheet in @($rules,$guide)){if($sheet.ProtectContents){[void]$sheet.Unprotect('')}}
@@ -460,6 +462,7 @@ try{
     $book=$excel.Workbooks.Open($temporary,0,$true);Wait-Calculation
     $after=Get-CoreSnapshot $book
     [void](Test-BlueprintDiagram $book $diagramReport)
+    [void](Test-VcfCommands $book)
     # Get-CoreSnapshot excludes only exact metadata names backed by verified
     # generated caches. Other names, including unrelated EV_* names, must match.
     $slicerNameAdditions=@($tableCacheNames|Where-Object {$_ -cnotin $baselineOwnedCaches})
@@ -543,6 +546,7 @@ try{
     $report=[ordered]@{success=$true;viewSchema=$marker;viewType='Worklist';refreshedUtc=$refreshed;outputPath=$output;sourceSha256=$sourceHash;matrixFingerprint=$matrixHash;sourceRows=$count;defaultVisibleRows=$defaultCount;queueCounts=$queues;guideQueueCounts=$verifiedGuideCounts;guideQueueCountsVerified=$true;statusCounts=$statuses;sourceFieldComparisons=($count*$required.Count);sourceFieldMismatches=$mismatch;corePreserved=$true;generatedSlicerNamesAdded=$slicerNameAdditions;slicers=4;worklistSlicers=4;pivotSlicers=0;pivotCacheCount=$savedPivotCacheCount;saveReopenPassed=$true;generatedSheetsProtected=$true;generatedFormulasLocked=$true;protectedSlicersPassed=$true;protectedSelectorReapplyPassed=$true;protectedEndpointSideChecks=$sideChecks.ToArray();invalidEndpointSideHidesAll=$true;bidirectionalRulesUseBothEndpoints=$true;ribbonReapplyEnabled=$ribbonReapplyEnabled;selectorsReset=[ordered]@{component='All';endpointSide='Both';network='All'};defaultQueues=@('Candidate','Review','Ready');generatedSheets=$viewNames;excelVersion=$excelVersion;ownedExcelCloseRecoveries=$closeRecoveries.ToArray()}
     $report.detailRowSizing=$detailSizing.summary
     $report.blueprintDiagram=$diagramReport
+    $report.commandsTab=[ordered]@{schema='VCF_COMMANDS_V1';added=$commandsAdded;lastTab=$true;protectedFormula=$true;editablePaths=$true;diagramNavigation=$true}
     $report.preservationScope='All original sheets except the regenerated Blueprint view; engineer views are regenerated separately.'
     if(Test-Path -LiteralPath $output){throw 'The output appeared during refresh; it was not overwritten.'}
     [IO.File]::Move($temporary,$output,$false)

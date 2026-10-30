@@ -112,7 +112,9 @@ function Start-BpPage($Sheet,[string]$Title,[string]$Subtitle){
 }
 function End-BpPage($Sheet,[double]$Bottom){
     $footer=[Math]::Max($script:bpPageTop+664,$Bottom+12)
-    $null=Add-BpBox $Sheet "page$script:bpPage-status" 12 $footer 730 28 "='Blueprint view'!`$B`$4" '000000' 11 -Formula -NoBorder
+    $null=Add-BpBox $Sheet "page$script:bpPage-status" 12 $footer 510 28 "='Blueprint view'!`$B`$4" '000000' 11 -Formula -NoBorder
+    $help=Add-BpBox $Sheet "page$script:bpPage-refresh-help" 540 $footer 200 28 'Refresh instructions' '005C8A' 11
+    [void]$Sheet.Hyperlinks.Add($help,'',"'Commands'!A1",'Open the Commands tab to prepare a refresh command')
     $back=Add-BpBox $Sheet "page$script:bpPage-back" 760 $footer 202 28 'Back to Design' '005C8A' 11 -NoBorder
     [void]$Sheet.Hyperlinks.Add($back,'',"'Design'!A1",'Return to the design inputs')
     $script:bpNextRow=[int][Math]::Ceiling(($footer+36)/$script:bpRowHeight)
@@ -318,5 +320,72 @@ function Test-BlueprintDiagram($Book,$Expected){
             if($pageNumber -gt $pageEnds.Count -or $shape.Top+$shape.Height -gt $pageEnds[$pageNumber-1]){throw ('Saved diagram footer crosses a printed page: '+$shape.Name)}
         }
     }
+    return $true
+}
+
+function Initialize-VcfCommands($Book){
+    $existing=@($Book.Worksheets|Where-Object {$_.Name -ceq 'Commands'})
+    if($existing.Count){
+        if([string]$existing[0].Range('Z1').Value2 -ne 'VCF_COMMANDS_V1'){throw 'An unmarked Commands sheet already exists; it was not replaced.'}
+        return $false
+    }
+    $structure=[bool]$Book.ProtectStructure;$windows=[bool]$Book.ProtectWindows
+    if($structure -or $windows){[void]$Book.Unprotect('')}
+    try {
+        $sheet=$Book.Worksheets.Add([Type]::Missing,$Book.Worksheets.Item($Book.Worksheets.Count));$sheet.Name='Commands'
+        [void]$sheet.Activate();$Book.Application.ActiveWindow.DisplayGridlines=$false;$Book.Application.ActiveWindow.Zoom=100
+        $sheet.Range('A:J').ColumnWidth=10;$sheet.Range('A:A').ColumnWidth=25
+        $sheet.Range('1:42').RowHeight=19.5;$sheet.Range('A1:J42').Font.Name='Arial';$sheet.Range('A1:J42').Font.Size=11
+        $sheet.Range('A1:J42').Interior.Color=16777215;$sheet.Range('A1:J42').Font.Color=Convert-BpColor '203B58'
+        foreach($area in @('A1:J2','A3:J3','A5:J5','B7:J7','B8:J8','B9:J9','B11:J11','A12:J12','A14:J14','A15:J20','A22:J24','A26:J26','A27:J29','A31:J31','A32:J34','A36:J38','A40:D40','G40:J40')){[void]$sheet.Range($area).Merge()}
+        $sheet.Range('A1').Value2='Refresh diagrams and engineer views';$sheet.Range('A1').Font.Size=20;$sheet.Range('A1').Font.Bold=$true
+        $sheet.Range('A1:J2').Interior.Color=Convert-BpColor '203B58';$sheet.Range('A1:J2').Font.Color=16777215
+        $sheet.Range('A3').Value2='Macro-free workbook: this tab prepares a command for you to run in PowerShell.'
+        $sheet.Range('A5').Value2='1. Save your workbook, then replace these example paths'
+        $sheet.Range('A7').Value2='Tool repository folder';$sheet.Range('B7').Value2='C:\VCF-Network-Planner'
+        $sheet.Range('A8').Value2='Saved planner file';$sheet.Range('B8').Value2='C:\VCF-plans\My-Firewall-Planner.xlsx'
+        $sheet.Range('A9').Value2='New output file';$sheet.Range('B9').Value2='C:\VCF-plans\My-Firewall-Planner-Refreshed.xlsx'
+        $sheet.Range('A11').Value2='Path check'
+        $sheet.Range('B11').Formula=@'
+=IF(OR(B7="",B8="",B9=""),"Enter all three paths",IF(ISNUMBER(SEARCH(CHAR(34),B7&B8&B9)),"Remove surrounding double quotes from paths",IF(OR(ISNUMBER(SEARCH(CHAR(10),B7&B8&B9)),ISNUMBER(SEARCH(CHAR(13),B7&B8&B9))),"Use one line for each path",IF(LOWER(B8)=LOWER(B9),"Choose a different output filename",IF(OR(RIGHT(LOWER(B8),5)<>".xlsx",RIGHT(LOWER(B9),5)<>".xlsx"),"Use .xlsx filenames","Ready to copy")))))
+'@
+        $sheet.Range('A12').Value2='Excel checks path text only. Use real folders and files, and an output filename that does not exist.';$sheet.Range('A12').Font.Size=10
+        $sheet.Range('A14').Value2='2. Select and copy the command cell below (Ctrl+C)'
+        $sheet.Range('A15').Formula=@'
+=IF(B11<>"Ready to copy","Complete the path fields above.","pwsh -NoProfile -File '"&SUBSTITUTE(IF(RIGHT(B7,1)="\",LEFT(B7,LEN(B7)-1),B7)&"\importer\Update-FirewallViews.ps1","'","''")&"' -WorkbookPath '"&SUBSTITUTE(B8,"'","''")&"' -OutputWorkbook '"&SUBSTITUTE(B9,"'","''")&"'")
+'@
+        $sheet.Range('A15:J20').Font.Name='Consolas';$sheet.Range('A15:J20').Font.Size=11;$sheet.Range('A15:J20').Interior.Color=Convert-BpColor 'EDF3F8'
+        $sheet.Range('A15:J20').Borders.LineStyle=1;$sheet.Range('A15:J20').Borders.Color=Convert-BpColor 'A6BDD0'
+        $sheet.Range('A22').Value2='Open Windows Terminal or VS Code > Terminal > New Terminal. Select a PowerShell terminal, paste the copied command, and press Enter. Copy the selected cell itself; do not copy its formula from the formula bar. The command is one line even though it wraps on this sheet.'
+        $sheet.Range('A26').Value2='3. Open the newly created workbook'
+        $sheet.Range('A27').Value2='After the command finishes successfully, open New output file. Blueprint view should say Diagram layout current. For your next refresh, set Saved planner file to the workbook you are now editing and choose a fresh New output file.'
+        $sheet.Range('A31').Value2='What the refresh does'
+        $sheet.Range('A32').Value2='Redraws Blueprint view and rebuilds Engineer rules from your saved inputs. It resets worklist filters to their defaults, keeps the source workbook intact, and creates a verification report. P&P imports already run this refresh automatically.'
+        $sheet.Range('A36').Value2='Requires Windows, desktop Excel and PowerShell 7 (pwsh). Keep the importer folder intact, including BlueprintDiagram.ps1 and EngineerViews.xlsx. If pwsh is not found, install PowerShell 7 through your normal IT process. Existing output/report: choose a new name. Excel Refresh All updates calculations but does not redraw shapes.'
+        [void]$sheet.Hyperlinks.Add($sheet.Range('A40'),'',"'Blueprint view'!A1",'Return to the diagram','Back to blueprint')
+        [void]$sheet.Hyperlinks.Add($sheet.Range('G40'),'',"'Design'!A1",'Return to the design inputs','Back to Design')
+        foreach($row in @(5,14,26,31)){$sheet.Range("A${row}:J${row}").Interior.Color=Convert-BpColor 'DCE6EF';$sheet.Range("A$row").Font.Bold=$true}
+        $sheet.Range('A1:J42').VerticalAlignment=-4160;$sheet.Range('A1:J42').WrapText=$true
+        $sheet.Range('7:9').RowHeight=30;$sheet.Range('A7:A9').Font.Bold=$true
+        $sheet.Cells.Locked=$true;$sheet.Range('B7:J9').Locked=$false;$sheet.Range('B7:J9').Interior.Color=Convert-BpColor 'FFF2CC'
+        $sheet.Range('B7:J9').NumberFormat='@'
+        foreach($spec in @(@('B7','Repository folder','Folder containing README.md and the importer subfolder. Paste the path without surrounding quotes.'),@('B8','Saved input workbook','Full path to the .xlsx file containing your saved edits. Unsaved edits cannot be read by the refresh.'),@('B9','New output workbook','Full path ending in .xlsx. Use a new filename, different from the source and any existing output or report.'))){
+            $validation=$sheet.Range($spec[0]).Validation;[void]$validation.Add(0);$validation.InputTitle=$spec[1];$validation.InputMessage=$spec[2];$validation.ShowInput=$true
+        }
+        $sheet.Range('Z1').Value2='VCF_COMMANDS_V1';$sheet.Range('Z:Z').EntireColumn.Hidden=$true
+        $sheet.EnableSelection=0;$page=$sheet.PageSetup;$page.PrintArea='A1:J40';$page.Orientation=1;$page.PaperSize=9;$page.Zoom=$false;$page.FitToPagesWide=1;$page.FitToPagesTall=1
+        $page.LeftMargin=18;$page.RightMargin=18;$page.TopMargin=18;$page.BottomMargin=18
+        [void]$sheet.Calculate();[void]$sheet.Protect('',$true,$true,$true);[void]$sheet.Range('B7').Select()
+    } finally {if($structure -or $windows){[void]$Book.Protect('',$structure,$windows)}}
+    return $true
+}
+
+function Test-VcfCommands($Book){
+    $sheet=$Book.Worksheets.Item('Commands')
+    if($sheet.Index -ne $Book.Worksheets.Count -or [string]$sheet.Range('Z1').Value2 -ne 'VCF_COMMANDS_V1'){throw 'Commands tab is missing, unmarked or not last.'}
+    if(-not $sheet.ProtectContents -or -not $sheet.Range('A15').Locked){throw 'Commands formulas must remain protected.'}
+    foreach($cell in @('B7','B8','B9')){if($sheet.Range($cell).Locked){throw 'Commands path fields must remain editable.'}}
+    $blueprint=$Book.Worksheets.Item('Blueprint view')
+    if(@($blueprint.Hyperlinks|Where-Object {$_.SubAddress -eq "'Commands'!A1"}).Count -lt 1){throw 'Blueprint refresh instructions link is missing.'}
     return $true
 }

@@ -63,6 +63,7 @@ Save a copy of the template outside this repository, then work through these tab
 | **Firewall matrix** | The authoritative calculated rule contexts, endpoint objects, status and conditions. |
 | **Engineer rules** | A readable, filterable snapshot of that matrix. |
 | **Engineer guide** | Filter instructions, queue totals and refresh details. |
+| **Commands** (last tab) | Editable path fields, a copyable refresh command and step-by-step instructions. |
 | **Port library / Catalogue / Guide** | Port definitions, evidence, release qualifications and further guidance. |
 
 Yellow cells are inputs. Selecting an input displays its tooltip where one is provided. Grey sections may be inactive for the selected design or calculated. Formulas and workbook structure are protected; protection prevents accidental editing and is not access control or encryption.
@@ -197,7 +198,17 @@ The **Firewall matrix** recalculates with the model. Its existing filter hides r
 
 The default worklist shows Candidate, Review and Ready. All source rows remain available through filters.
 
-After changing planner inputs, save the workbook and rebuild the snapshot to a new filename:
+After changing planner inputs, save the workbook. Click **Refresh instructions** at the foot of any diagram page, or open **Commands**, the last tab.
+
+1. Enter the folder containing this repo's `importer` subfolder, the saved planner's full path, and a new output filename in the three yellow fields.
+2. Select the generated command cell and press **Ctrl+C**. Paste into a PowerShell terminal in Windows Terminal or VS Code, then press Enter. The command is one line even though Excel wraps it for display; copy the cell, not the formula bar.
+3. Open the newly generated workbook. For the next refresh, update **Saved planner file** to the file you are now editing and choose another **New output file**.
+
+![Commands tab with path fields and a copyable refresh command](docs/images/09-refresh-commands.png)
+
+The tab checks path text and quotes paths containing spaces or apostrophes. It cannot check whether folders/files exist or whether an output name is already used; the refresh script validates those when it runs. Example paths must be replaced. The tab prepares text and does not execute code inside Excel. The workbooks remain macro-free `.xlsx` files.
+
+You can also run the refresh command directly:
 
 ```powershell
 ./importer/Update-FirewallViews.ps1 `
@@ -227,7 +238,7 @@ The following pages show **this instance's recorded inventory**:
 
 The diagram is a planning view, not discovered infrastructure. It does not establish connectivity or validate the deployment on its own. Use **Network plan**, **Resources** and the firewall views for interface addresses and rule details. Dense inventories continue onto additional pages at readable text sizes.
 
-Names linked to cells can update when Excel recalculates. **Adding, removing or moving objects requires a redraw**: a plain `.xlsx` cannot change shape geometry through formulas alone. The footer displays **Diagram layout needs refresh** when the recorded inputs differ from the last redraw. Save your edits, then run the same `Update-FirewallViews.ps1` command shown above to produce a new workbook. The refresh updates both diagrams and Engineer rules and resets the worklist filters.
+Names linked to cells can update when Excel recalculates. **Adding, removing or moving objects requires a redraw**: a plain `.xlsx` cannot change shape geometry through formulas alone. The footer displays **Diagram layout needs refresh** when the recorded inputs differ from the last redraw. Save your edits, then follow **Refresh instructions → Commands**, or run the `Update-FirewallViews.ps1` command shown above to produce a new workbook. The refresh updates both diagrams and Engineer rules and resets the worklist filters.
 
 The refresh runs in its own Excel process and publishes only a verified output. If it fails, the previous workbook remains intact. Review changes in the newly generated file before using it. Diagram formulas and shapes are protected against accidental editing; this is still a macro-free `.xlsx`.
 
@@ -254,7 +265,7 @@ The imported examples retain truthful review messages for missing FQDNs, runtime
 | Unsupported source release/schema | Use the supported VCF 9.1.1 P&P layout; renamed/moved source fields need mapping review. |
 | IP outside selected VLAN subnet | Check the network dropdown, subnet/prefix and assigned interface address. |
 | Missing host interface | Enter an explicit address for that host/purpose; an allocation pool alone is insufficient. |
-| Diagram layout needs refresh | Save edits and run `Update-FirewallViews.ps1` to a new output filename. Recalculation updates linked text but does not redraw topology. |
+| Diagram layout needs refresh | Save edits, click **Refresh instructions**, and follow the **Commands** tab. Recalculation updates linked text but does not redraw topology. |
 | Engineer rules looks unchanged | Save the planner and run the view refresh script. For selector changes alone, reselect Yes in Focus match. |
 | Unresolved endpoint or design status | Review the import report and owning input tab; skipping confirmations will not fix technical input errors. |
 | Excel automation fails | Read the error, save any intended source edits and retry to a new output name. The tool does not close your Excel session. |
